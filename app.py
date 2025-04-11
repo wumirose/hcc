@@ -459,7 +459,6 @@ def get_model_performance_by_relationship():
         showlegend=False
     )
     fig.update_coloraxes(showscale=False)
-
     return frequency_table, fig
 
 # === Entropy Calculation ===
