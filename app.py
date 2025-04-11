@@ -25,8 +25,7 @@ app.layout = html.Div([
 
     # File Upload Component
     html.Div(id="upload-section",
-             children=[html.P("Upload a CSV file to get started.", style={'fontSize': '16px', 'color': 'blue'}),
-                       dcc.Upload(
+             children=[dcc.Upload(
                            id='upload-data',
                            children=html.Button('Upload CSV File', style={'marginBottom': '10px'}),
                            multiple=False
@@ -149,6 +148,7 @@ def update_dashboard( contents, prev_clicks, next_clicks, submit_clicks, option_
             df["human_choice"] = ""
         df["human_choice"] = df["human_choice"].fillna("")
 
+        df['entropy'] = df.apply(compute_entropy, axis=1)
         df = df.sort_values(by="entropy", ascending=False).reset_index(drop=True)
 
         data_store = df.to_dict("records")
@@ -203,8 +203,6 @@ def update_selection( click_timestamps, option_ids ):
     click_timestamps = [ts if ts is not None else 0 for ts in click_timestamps]
     latest_index = np.argmax(click_timestamps)
     selected_option = option_ids[latest_index]['index'].replace('option-', '').strip()
-
-    # print(f"[DEBUG] Selected Option: {selected_option}")
     return selected_option
 
 
@@ -232,7 +230,7 @@ def update_styles( selected_value, option_ids ):
             'fontSize': '16px',
             'fontWeight': 'bold',
             'boxShadow': '2px 2px 10px rgba(0,0,0,0.2)' if option['index'].replace('option-',
-                                                                                   '') == selected_value else 'none'
+                                                                                   '') == selected_value else None
         }
         for option in option_ids
     ]
@@ -260,6 +258,7 @@ def display_current_row( index ):
         html.P(f"Object: {obj}"),
         html.P(f"LLM Predicate: {pred}"),
         html.P(f"My Current Choice: {row.get('human_choice', 'Not classified yet')}", style={'color': 'green'}),
+        html.P("Possible Choices")
     ])
 
 
@@ -342,15 +341,18 @@ def get_current_options():
     models_choices = [row.get(m) for m in models]
     classification_options = []
     for rel in vector_choices:
-        if rel.strip() in models_choices:
+        rel = rel.strip()
+        if rel in models_choices:
             classification_options.append({"label": rel, "value": rel, 'color': '#b5cbdf'})
         else:
             classification_options.append({"label": rel, "value": rel})
-    if "none" in models:
+    if "none" in models_choices:
         classification_options.append({"label": "none", "value": "none", "color": "#b5cbdf"})
     else:
         classification_options.append({"label": "none", "value": "none"})
 
+    # print("classification options: ", classification_options)
+    # print("model choices: ", models_choices)
     return classification_options
 
 
@@ -448,7 +450,7 @@ def get_model_performance_by_relationship():
         # Add axis titles
         fig.update_xaxes(title_text="Model's Choice", row=1, col=i + 1)
         if i == 0:  # Only add y-axis label once
-            fig.update_yaxes(title_text="Ola's Choice", row=1, col=i + 1)
+            fig.update_yaxes(title_text="My Choice", row=1, col=i + 1)
 
     # Final layout tweaks
     fig.update_layout(
@@ -460,18 +462,15 @@ def get_model_performance_by_relationship():
 
     return frequency_table, fig
 
+# === Entropy Calculation ===
+def compute_entropy( row ):
+    labels = [row["llama2"], row["llama3"], row["deepseek"], row["gemma3"]]
+    label_counts = pd.Series(labels).value_counts().values
+    return entropy(label_counts)
 
 def get_statistics():
     if df.empty:
         return html.Div("No data available for statistics."), {}, {}
-
-    # === Entropy Calculation ===
-    def compute_entropy( row ):
-        labels = [row["llama2"], row["llama3"], row["deepseek"], row["gemma3"]]
-        label_counts = pd.Series(labels).value_counts().values
-        return entropy(label_counts)
-
-    df['entropy'] = df.apply(compute_entropy, axis=1)
 
     # === Histogram of Entropy ===
     fig_entropy = px.histogram(
@@ -511,7 +510,7 @@ def get_statistics():
         labels={'x': 'Model', 'y': 'Accuracy (%)'},
         title="Model Accuracy",
         color='Accuracy (%)',
-        # color_continuous_scale='teal'
+        color_continuous_scale='teal'
     )
     fig_accuracy.update_coloraxes(showscale=False)
     # Get new detailed table + heatmap

@@ -9,9 +9,10 @@ How to start the web app
 
 Task
 ------------------------------
-Which one of these classes best connects the subject and object solely based on the summary? 
+For each entry, which one of the predicate options best connects the subject and object solely based on the summary? 
 - Do not use any other external knowledge except what you can see or infer from the summary. 
 - Make sure the subject and objects are mentioned in the abstract. If they are not, then None will be the best fit
+- Once you select an option, remeber to `submit classification` before moving on to the `next` entry
 
 
 
